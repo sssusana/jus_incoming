@@ -1,0 +1,351 @@
+# https://cran.rstudio.com/web/packages/TSstudio/vignettes/TSstudio_Intro.html
+# https://rpubs.com/ramkrisp/TSstudio_Intro
+# https://cran.r-project.org/web/packages/TSstudio/TSstudio.pdf
+
+#### Install and Load Packages #### 
+
+#install.packages
+#install.packages("TSstudio")
+
+#import libs 
+library(ggplot2)
+library(readr)
+library(fma)
+library(reshape2)
+library(lubridate)
+library(plotly)
+library(magrittr)
+library(zoo)
+library(xts)
+library(forecast)
+library(TSstudio)
+library(tseries)
+library(aTSA)
+library(ggsci)
+library(ggpubr)
+
+#### Data Import & Treatment #### 
+
+#import full dataset (39-2018)
+cat("Load Init")
+dataset <- read.csv("eletr_gas.csv", sep=";") 
+head(dataset, n='2')
+colnames(dataset)
+
+#remove column from our dataset & rename
+dataset <- dataset[2]
+dataset 
+print(dataset)
+names(dataset)[1] <- "value"
+head(dataset, n='3')
+tail(dataset, n='3')
+
+#import cohort (85 to 2018)
+energy <- read.csv("eletr_gas2.csv", sep=";")
+colnames(energy)
+head(energy, n='3')
+tail(energy, n='3')
+
+#remove column from our dataset & rename
+data <- energy[2]
+print(data)
+names(data)[1] <- "value"
+print(data)
+
+#TS creation (39 to 2018)
+energy_dataset.ts <- ts(dataset, start= c(1939, 1), end= c(2017,12) , frequency = 12)
+print(energy_dataset.ts)
+start(energy_dataset.ts)
+end(energy_dataset.ts)
+frequency(energy_dataset.ts)
+
+
+#TS creation (85 to 2018)
+energy.ts <- ts(data, start=c(1985,1), end= c(2017,12) , frequency = 12)
+class(energy.ts)
+start(energy.ts)
+end(energy.ts)
+frequency(energy.ts)
+head(energy.ts)
+tail(energy.ts)
+
+#energy_dataset.ts: 1939-2018: Total dataset
+#energy.ts: 85-2018 cohort data
+
+#### Plotting #### 
+
+#TS Plotting (original data)
+
+par(mfrow=c(1,1))
+eletr_plot <-plot.ts(energy_dataset.ts, main="US Energy Production from 1939 to 2017", 
+                     xlab="Data", ylab="Energy", type="l", col='black' )
+
+abline(h=mean(energy_dataset.ts), col='#c0d630', lwd='2')
+text1<-c("Average Production")
+legend("bottomright", inset = .05, text1,col="#c0d630",lty=1,ncol=1,cex=0.5,lwd=2.5)
+
+
+eletr_plot2 <-plot.ts(window(energy.ts, start=c(1985,1), end=c(2017,12), main="US Energy Production  from 1985 to 2018", 
+                     xlab="Data", ylab="Energy", type="l", col='black'))
+
+abline(h=mean(energy.ts), col='#c0d630', lwd='2')
+text1<-c("Average Production")
+legend("topleft", inset = .05 ,text1,col="#c0d630",lty=1,ncol=1,cex=0.5,lwd=2.5)
+
+
+####Trend Analysis####
+#MA
+data_trend <- ts(data, start = c(1985,1), end = c(2017,12), frequency = 12)
+plot(data_trend)
+trend <- stats::filter(data_trend, filter= c(1/24, 1/12,1/12,1/12,1/12,1/12,1/12,1/12,1/12,1/12,1/12,1/12,1/24),sides=2)
+plot(data_trend, main="Moving Average Estimation of Trend")
+lines(trend, col="#c0d630", lwd='2')
+
+#Linear Regression
+t <- seq(1:length(data_trend))
+trend2 <- lm(data_trend ~ 1+t)
+summary(trend2)
+
+#Both
+plot(data_trend, col=1)
+trend2l <- ts(trend2$fitted, start = c(1985,1), frequency = 12)
+lines(trend,col=2)
+lines(trend2l,col=3) 
+legend("topleft",c("Series","MA(12)","Trend"),col=1:3,lty=1,lwd=2,ncol=1,cex=0.5)
+
+
+
+#Histogram Normal Distribution and Kernel Density Estimate
+forecast::gghistogram(energy.ts, add.normal = TRUE, add.kde = TRUE, add.rug = TRUE, boundary = 1)
+
+#####Seasonal Analysis#####
+
+#From now on we are only dealing with the second dataset (the one with data 85-2018)
+#Monthly plots. 
+monthplot(energy.ts, ylab='Energy', xlab= "Months",main= "US Monthly Energy Consumption")
+axis(2,at=1:12,labels=month.abb,cex=0.3)
+
+#Analysing the variation by year, month, and monthly boxplots 
+ts_seasonal(energy.ts, type = 'box')
+#Other tests & all
+ts_seasonal(energy.ts, type = 'normal')
+ts_seasonal(energy.ts, type = 'cycle')
+ts_seasonal(energy.ts, type = 'all')
+
+#Heatmap
+ts_heatmap(energy.ts)
+
+#Surface plot
+ts_surface(energy.ts)
+
+ts_lags(energy.ts, n_row = 6)
+
+
+####Check for stationarity in the original time-series####
+kpss.test(energy.ts)
+PP.test(energy.ts)
+
+####Decomposition####
+
+decompose(energy.ts)
+ts_decompose(energy.ts, type = 'multiplicative', showline = T )
+
+energy.ts.multi <- decompose(data_trend, type='multiplicative')
+plot(energy.ts.multi, lwd='1.5')
+
+plot(data_trend)
+lines(energy.ts.multi$trend, col=2)
+lines(energy.ts.multi$trend/energy.ts.multi$seasonal, col="#c0d630")
+legend("topright",c("Series","Trend","Trend/Seasonal"),col=c(1, 2, '#c0d630'),lty=1,lwd=2,ncol=1,cex=0.5)
+
+
+#Using Simple Forecast Methods
+plot.ts(window(energy.ts, start = 1985, end=2018),type="l",xlab="Time",ylab="Energy Consumption", xlim=c(1985,2022), ylim=c(50, 140)) 
+lines(meanf(window(energy.ts, start = 1985, end = 2018),h=48)$mean,col=5,lwd=1.5)
+lines(naive(window(energy.ts, start = 1985, end = 2018),h=48)$mean,col=6,lwd=1.5)
+lines(snaive(window(energy.ts, start = 1985, end = 2018),h=48)$mean,col=7,lwd=1.5)
+lines(rwf(window(energy.ts, start= 1985, end = 2018),drift=T,h=48)$mean,col=8,lwd=1.5)
+text<-c("Mean method","Naive method", "Seasonal naive method", "Drift method")
+legend("bottomright",text,col=5:8,lty=1,ncol=1,cex=0.5,lwd=2)
+
+
+####Holt-Winters####
+HW_A1<-HoltWinters(energy.ts, seasonal="multiplicative")
+HW_A1
+
+HW_A2 <- hw(energy.ts)
+summary(HW_A2)
+
+##Beter RMSE in the multiplicative (HW_A1) method! 
+
+forecast_HW_A1 <- predict(HW_A1, n.ahead = 24, prediction.interval = T,
+                          level = 0.90)
+
+plot(HW_A1, forecast_HW_A1, col.predicted = "#c0d630", 
+     col.intervals = "darkgrey", lwd='2.5', col.separator = "black", 
+     lty.intervals = 'dotted')
+
+
+#auxiliar:
+ets(energy.ts, model = "ZZZ")
+
+
+####Dealing with Non-Stationary####
+#BoxCox (variance)
+#Remember: if λ = 0, log(xt )otherwise, (xt − 1)(λ)/λ
+lambda <- BoxCox.lambda(energy.ts)
+lambda
+
+
+## If your lambda was next to 1 we would apply a box-cox transformation:
+#plot(BoxCox(energy.ts, lambda))
+#plot(diff(BoxCox(energy.ts, lambda)))
+#abline(h = mean(diff(BoxCox(energy.ts, lambda))))
+
+#acf(diff(BoxCox(energy.ts, lambda)))
+#acf(diff(diff(BoxCox(energy.ts, lambda))))
+#pacf(diff(BoxCox(energy.ts, lambda)))
+    
+#acf(diff(BoxCox(energy.ts, lambda)))
+#plot(diff(diff(energy.ts)))
+#acf(diff(diff(energy.ts)))
+
+#### Lags, ACF e PACF ####
+#TStudio
+ts_acf(energy.ts, lag.max = 24, col ="#c0d630")
+ts_pacf(energy.ts, lag.max = 24, col = "#c0d630")
+#ts_lags(energy.ts, n_row = 4, lag.max = 12 )
+
+#Convetional
+par(mfrow=c(1,2))
+acf(energy.ts, main='ACF', col ="#c0d630", lwd=2, lag.max = 24, ci.col='black') # to test MA and AR
+pacf(energy.ts, main="PACF", col ="#c0d630", lwd=2, lag.max = 24, ci.col='black') # to test AR and MA
+
+#Log Data with 1st Differences - Conventional 
+diff1<-diff(log(energy.ts))
+#Plot of data
+plot(diff1, col ="#c0d630", main="First Differences of Log Data" )
+#abline(h=0)
+
+##ACF and PACF of 1st Diff, Log
+par(mfrow=c(1,2))
+acf(diff(log(energy.ts)), main='ACF', col ="#c0d630", lwd=2, lag.max = 24, ci.col='black') # to test MA and AR
+pacf(diff(log(energy.ts)), main="PACF", col ="#c0d630", lwd=2, lag.max = 24, ci.col='black') # to test AR and MA
+
+####Seasonal Difference of First Difference ####
+par(mfrow=c(1,1))
+diff1and12 <- diff(diff1, 12)
+plot(diff1and12, col ="#c0d630", main="Seasonal Differences of Log Data", lwd=2 )
+
+
+####ACF and PACF of Seasonal Difference of 1st Diff of Log Data)
+par(mfrow=c(1,2))
+acf(diff1and12, main='ACF', col ="#c0d630", lwd=2, lag.max = 48, ci.col='black') # to test MA and AR
+pacf(diff1and12, main="PACF", col ="#c0d630", lwd=2, lag.max = 48, ci.col='black') # to test AR and MA
+
+#### Testing Arima ####
+#ARIMA(2,1,1)(0,1,2)[12]
+
+summary(teste1)
+summary(teste1log)
+ets(energy.ts)
+
+##top 3 Non-Log
+#auto not significant 2nd p
+autononlog <- auto.arima(energy.ts)
+arima(x = energy.ts, order = c(2,1,1), seasonal = c(0,1,2))
+#other3
+
+arima111012<-estimate(energy.ts, p = 1, d=1, q=1, PDQ = c(0,1,2),S =12)
+arima111011<-estimate(energy.ts, p=1, d=1, q=1, PDQ=c(0,1,1), S=12)
+arima111111<-estimate(energy.ts, p = 1, d=1, q=1, PDQ = c(1,1,1),S =12)
+
+
+#Top 3 log 
+autolog <- auto.arima(log(energy.ts))
+summary(teste1log)
+
+teste<-arima(x = log(energy.ts), order = c(1,1,1), seasonal = c(1,1,2))
+teste<-arima(x = log(energy.ts), order = c(1,1,1), seasonal = c(0,1,2)) #MA 2 not sig 
+teste<-arima(x = log(energy.ts), order = c(1,1,1), seasonal = c(1,1,1))
+teste<-arima(x = log(energy.ts), order = c(2,1,2), seasonal = c(1,1,2))
+teste<-arima(x = log(energy.ts), order = c(1,1,1), seasonal = c(1,1,0))
+teste<-arima(x = log(energy.ts), order = c(2,1,1), seasonal = c(1,1,1))
+teste<-arima(x = log(energy.ts), order = c(1,1,1), seasonal = c(2,1,2))
+teste<-arima(x = log(energy.ts), order = c(1,1,1), seasonal = c(1,1,1))
+teste
+
+mfinal<-arima(x = log(energy.ts), order = c(1,1,1), seasonal = c(0,1,1)) #Reduziu-se SMA aqui
+
+#AICS and stuff
+#statistical parameteres for the final model
+n=length(log(energy.ts))
+k=length(mfinal$coef)
+AIC = log(mfinal$sigma2) + ((n+2*k)/n)
+BIC = log(mfinal$sigma2) + k*log(n)/(n)
+AICc = log(mfinal$sigma2) + ((n+k)/(n-k-2))
+
+                             
+AIC
+BIC
+AICc
+
+#### Residual Checking ####
+tsdiag(mfinal, lwd='3')
+
+ggqqplot(mfinal$residuals,col=(c("black")), main="Q-Q Plot of Residuals", conf.int = TRUE, conf.int.level = 0.99, size = 1.5, shape = 4, add))
+
+#### Forecasting Results ####
+#Splitting data
+h_out <- 24
+split_energyTS <- ts_split(energy.ts, sample.out = h_out)
+train <- split_energyTS$train
+test <- split_energyTS$test
+
+#ARIMA(2,1,1)(0,1,2)[12]
+#Forecasting
+#teste1<-auto.arima(train, seasonal = TRUE) # this forecast cannot be used with "forecast"
+
+mfinal <-arima(x = log(energy.ts), order = c(1,1,1), seasonal = c(0,1,1)) #Reduziu-se SMA aqui
+mfinal_nonlog <-arima(energy.ts, order = c(1,1,1), seasonal = c(0,1,1)) #Reduziu-se SMA aqui
+mfinal_nonlog_forecasted <- forecast::forecast(arima(energy.ts, order = c(1,1,1), seasonal = c(0,1,1)), h=48)
+plot(mfinal_nonlog_forecasted,showgap = TRUE ,col = 'black', fcol = "#c0d630" , shadecols = "grey", flwd = '2', shaded = TRUE, type = 'l', flty = 1)
+
+
+summary(mfinal_nonlog)
+
+
+csv_forecast<-mfinal_nonlog_forecasted
+csv_forecast<-csv_forecast$level
+csv_forecast
+
+write.csv('csv_forecast',file = 'csv_forecast')
+par(mfrow=c(1,1))
+
+datalog_red <- window(energy.ts, start=c(2010,1), end=c(2017,12))
+datalog_red
+datalog_red_fitted <-arima(datalog_red, order = c(1,1,1), seasonal = c(0,1,1)) #Reduziu-se SMA aqui
+datalog_red_fitted
+
+datalog_red_forecasted <- forecast::forecast(arima(datalog_red, order = c(1,1,1), seasonal = c(0,1,1)), h=28)
+plot(datalog_red_forecasted, showgap = TRUE ,col = 'black', fcol = "darkgreen" , shadecols = "#c0d630", flwd = '2', shaded = TRUE, type = 'l', flty = 1  )
+
+datalog_red_forecasted$method
+datalog_red_forecasted$series
+datalog_red_forecasted$level
+
+
+mfinal_train <- forecast::forecast(auto.arima(train), h=24)
+mfinal_train <- forecast::forecast(arima(train, order = c(1,1,1), seasonal = c(0,1,1)), h=24)
+
+test_forecast(actual = energy.ts, forecast.obj = mfinal_train, test = test)
+plot(teste1_forecast)
+
+
+#Since we're already runned the auto-arima here and also in python (py iterate bewteen several hip with max_order (p+q+P+Q) <4)
+#We already know the paramaters and respective aic's from several models. 
+#Given that, now we have to evaluate also the residuals (acf, pacf, jlung box, qqplot etc) + predictons
+#The methadology is going to be: 1. model; 2. residuals eval (all); 3. prediction (with train and test set)
+
+
+#Remember: different ways to calculate criteria with logs. 

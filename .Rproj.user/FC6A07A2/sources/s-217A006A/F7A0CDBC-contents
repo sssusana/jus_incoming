@@ -1,0 +1,6 @@
+teste<- ts(dataset, start = c(1985,1), end = c(2017,12))
+
+
+View(teste)
+
+

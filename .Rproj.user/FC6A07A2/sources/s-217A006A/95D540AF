@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1529873970324.000,
+    "dirty" : true,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "95D540AF",
+    "lastKnownWriteTime" : 1530984571,
+    "last_content_update" : 1530986383331,
+    "path" : "~/Documents/GitHub/jus_incoming/script.R",
+    "project_path" : "script.R",
+    "properties" : {
+        "cursorPosition" : "95,0",
+        "scrollLine" : "85",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
